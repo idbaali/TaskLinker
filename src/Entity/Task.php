@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\TaskRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TaskRepository::class)]
@@ -36,15 +38,26 @@ class Task
     #[ORM\JoinColumn(nullable: false)]
     private ?Status $status = null;
 
-    #[ORM\ManyToOne(inversedBy: 'taks')]
+    #[ORM\ManyToOne(inversedBy: 'tasks')]
     private ?User $user = null;
 
-    #[ORM\ManyToOne(inversedBy: 'tasks')]
-    private ?Tag $tags = null;
+    /**
+     * @var Collection<int, Tag>
+     */
+    #[ORM\ManyToMany(targetEntity: Tag::class, inversedBy: 'tasks')]
+    private Collection $tags;
+
+    /**
+     * @var Collection<int, TimeSlot>
+     */
+    #[ORM\OneToMany(mappedBy: 'task', targetEntity: TimeSlot::class)]
+    private Collection $timeSlots;
 
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->tags = new ArrayCollection();
+        $this->timeSlots = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -148,14 +161,55 @@ class Task
         return $this;
     }
 
-    public function getTags(): ?Tag
+    /**
+     * @return Collection<int, Tag>
+     */
+    public function getTags(): Collection
     {
         return $this->tags;
     }
 
-    public function setTags(?Tag $tags): static
+    public function addTag(Tag $tag): static
     {
-        $this->tags = $tags;
+        if (!$this->tags->contains($tag)) {
+            $this->tags->add($tag);
+        }
+
+        return $this;
+    }
+
+    public function removeTag(Tag $tag): static
+    {
+        $this->tags->removeElement($tag);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, TimeSlot>
+     */
+    public function getTimeSlots(): Collection
+    {
+        return $this->timeSlots;
+    }
+
+    public function addTimeSlot(TimeSlot $timeSlot): static
+    {
+        if (!$this->timeSlots->contains($timeSlot)) {
+            $this->timeSlots->add($timeSlot);
+            $timeSlot->setTask($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTimeSlot(TimeSlot $timeSlot): static
+    {
+        if ($this->timeSlots->removeElement($timeSlot)) {
+            if ($timeSlot->getTask() === $this) {
+                $timeSlot->setTask(null);
+            }
+        }
 
         return $this;
     }

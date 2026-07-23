@@ -5,7 +5,6 @@ namespace App\Entity;
 use App\Repository\ProjectRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
@@ -16,51 +15,55 @@ class Project
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 100)]
+    #[ORM\Column(length: 150)]
     private ?string $name = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTime $startDate = null;
+    #[ORM\Column]
+    private ?\DateTimeImmutable $startDate = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
-    private ?\DateTime $deadline = null;
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $deadline = null;
 
     #[ORM\Column]
     private bool $isArchived = false;
 
     #[ORM\Column]
-    private \DateTimeImmutable $createdAt;
+    private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $updatedAt = null;
 
     /**
-     * @var Collection<int, Task>
+     * @var Collection<int, User>
      */
-    #[ORM\OneToMany(targetEntity: Task::class, mappedBy: 'project')]
-    private Collection $tasks;
+    #[ORM\ManyToMany(targetEntity: User::class, inversedBy: 'projects')]
+    private Collection $users;
 
     /**
      * @var Collection<int, Status>
      */
-    #[ORM\OneToMany(targetEntity: Status::class, mappedBy: 'project')]
+    #[ORM\OneToMany(mappedBy: 'project', targetEntity: Status::class)]
     private Collection $statuses;
 
     /**
      * @var Collection<int, Tag>
      */
-    #[ORM\OneToMany(targetEntity: Tag::class, mappedBy: 'project')]
+    #[ORM\OneToMany(mappedBy: 'project', targetEntity: Tag::class)]
     private Collection $tags;
 
-    #[ORM\ManyToOne(inversedBy: 'projects')]
-    private ?User $users = null;
+    /**
+     * @var Collection<int, Task>
+     */
+    #[ORM\OneToMany(mappedBy: 'project', targetEntity: Task::class)]
+    private Collection $tasks;
 
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
-        $this->tasks = new ArrayCollection();
+        $this->users = new ArrayCollection();
         $this->statuses = new ArrayCollection();
         $this->tags = new ArrayCollection();
+        $this->tasks = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -80,24 +83,24 @@ class Project
         return $this;
     }
 
-    public function getStartDate(): ?\DateTime
+    public function getStartDate(): ?\DateTimeImmutable
     {
         return $this->startDate;
     }
 
-    public function setStartDate(\DateTime $startDate): static
+    public function setStartDate(\DateTimeImmutable $startDate): static
     {
         $this->startDate = $startDate;
 
         return $this;
     }
 
-    public function getDeadline(): ?\DateTime
+    public function getDeadline(): ?\DateTimeImmutable
     {
         return $this->deadline;
     }
 
-    public function setDeadline(?\DateTime $deadline): static
+    public function setDeadline(?\DateTimeImmutable $deadline): static
     {
         $this->deadline = $deadline;
 
@@ -116,7 +119,7 @@ class Project
         return $this;
     }
 
-    public function getCreatedAt(): \DateTimeImmutable
+    public function getCreatedAt(): ?\DateTimeImmutable
     {
         return $this->createdAt;
     }
@@ -141,29 +144,31 @@ class Project
     }
 
     /**
-     * @return Collection<int, Task>
+     * @return Collection<int, User>
      */
-    public function getTasks(): Collection
+    public function getUsers(): Collection
     {
-        return $this->tasks;
+        return $this->users;
     }
 
-    public function addTask(Task $task): static
+    public function addUser(User $user): static
     {
-        if (!$this->tasks->contains($task)) {
-            $this->tasks->add($task);
-            $task->setProject($this);
+        if (!$this->users->contains($user)) {
+            $this->users->add($user);
+
+            if (!$user->getProjects()->contains($this)) {
+                $user->addProject($this);
+            }
         }
 
         return $this;
     }
 
-    public function removeTask(Task $task): static
+    public function removeUser(User $user): static
     {
-        if ($this->tasks->removeElement($task)) {
-            // set the owning side to null (unless already changed)
-            if ($task->getProject() === $this) {
-                $task->setProject(null);
+        if ($this->users->removeElement($user)) {
+            if ($user->getProjects()->contains($this)) {
+                $user->removeProject($this);
             }
         }
 
@@ -191,7 +196,6 @@ class Project
     public function removeStatus(Status $status): static
     {
         if ($this->statuses->removeElement($status)) {
-            // set the owning side to null (unless already changed)
             if ($status->getProject() === $this) {
                 $status->setProject(null);
             }
@@ -221,7 +225,6 @@ class Project
     public function removeTag(Tag $tag): static
     {
         if ($this->tags->removeElement($tag)) {
-            // set the owning side to null (unless already changed)
             if ($tag->getProject() === $this) {
                 $tag->setProject(null);
             }
@@ -230,14 +233,31 @@ class Project
         return $this;
     }
 
-    public function getUsers(): ?User
+    /**
+     * @return Collection<int, Task>
+     */
+    public function getTasks(): Collection
     {
-        return $this->users;
+        return $this->tasks;
     }
 
-    public function setUsers(?User $users): static
+    public function addTask(Task $task): static
     {
-        $this->users = $users;
+        if (!$this->tasks->contains($task)) {
+            $this->tasks->add($task);
+            $task->setProject($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTask(Task $task): static
+    {
+        if ($this->tasks->removeElement($task)) {
+            if ($task->getProject() === $this) {
+                $task->setProject(null);
+            }
+        }
 
         return $this;
     }

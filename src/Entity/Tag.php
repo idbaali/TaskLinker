@@ -15,7 +15,7 @@ class Tag
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 100, unique: true)]
+    #[ORM\Column(length: 100)]
     private ?string $name = null;
 
     #[ORM\Column]
@@ -24,15 +24,15 @@ class Tag
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $updatedAt = null;
 
-    /**
-     * @var Collection<int, Task>
-     */
-    #[ORM\OneToMany(targetEntity: Task::class, mappedBy: 'tags')]
-    private Collection $tasks;
-
     #[ORM\ManyToOne(inversedBy: 'tags')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Project $project = null;
+
+    /**
+     * @var Collection<int, Task>
+     */
+    #[ORM\ManyToMany(targetEntity: Task::class, mappedBy: 'tags')]
+    private Collection $tasks;
 
     public function __construct()
     {
@@ -81,6 +81,18 @@ class Tag
         return $this;
     }
 
+    public function getProject(): ?Project
+    {
+        return $this->project;
+    }
+
+    public function setProject(?Project $project): static
+    {
+        $this->project = $project;
+
+        return $this;
+    }
+
     /**
      * @return Collection<int, Task>
      */
@@ -93,7 +105,7 @@ class Tag
     {
         if (!$this->tasks->contains($task)) {
             $this->tasks->add($task);
-            $task->setTags($this);
+            $task->addTag($this);
         }
 
         return $this;
@@ -102,23 +114,8 @@ class Tag
     public function removeTask(Task $task): static
     {
         if ($this->tasks->removeElement($task)) {
-            // set the owning side to null (unless already changed)
-            if ($task->getTags() === $this) {
-                $task->setTags(null);
-            }
+            $task->removeTag($this);
         }
-
-        return $this;
-    }
-
-    public function getProject(): ?Project
-    {
-        return $this->project;
-    }
-
-    public function setProject(?Project $project): static
-    {
-        $this->project = $project;
 
         return $this;
     }
